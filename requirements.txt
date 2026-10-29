@@ -1,5 +1,5 @@
-yfinance
-pandas
-numpy
-jpholiday
-pytest
+yfinance==1.7.0
+pandas==3.1.0
+numpy==2.5.4
+jpholiday==1.0.3
+pytest==9.2.0

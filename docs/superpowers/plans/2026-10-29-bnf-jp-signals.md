@@ -31,7 +31,7 @@
 
 1. **最近 24 天内有拆股**：yfinance 的 Close 已按拆股调整，所以算出来的触发价应当在现在的价位上，不会差一个拆股倍数。由 Task 2 的 `test_price_uses_split_adjusted_close` 覆盖。
 2. **数据过期或缺失**：yfinance 没返回昨天的 K 线，或者某只股票整体缺数据。推送应当写出警告，而不是安静地显示"今天不动"。由 Task 5 的 `test_stale_data_warns` 覆盖。
-3. **持仓不在股票池里**（比如用户买了 314A 这种 ETF）：仍然用它自己的历史算目标价；历史不够 500 天的，提示"无法计算"。由 Task 5 的 `test_holding_outside_universe` 覆盖。
+3. **持仓不在股票池里**（比如某只 ETF）：仍然用它自己的历史算目标价；历史不够 500 天的，提示"无法计算"。由 Task 5 的 `test_holding_outside_universe` 覆盖。
 4. **新上市、历史不足 500 天的成分股**（如 285A）：直接跳过，不报错。由 Task 2 的 `test_buy_line_needs_500_days` 和 Task 5 的 `test_short_history_skipped` 覆盖。
 5. **日本节假日或年末年始被定时任务触发**：完全不输出，因此也不推送。由 Task 3 的 `test_trading_day_calendar` 和 Task 6 的 `test_cli_silent_on_holiday` 覆盖。
 

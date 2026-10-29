@@ -1,0 +1,59 @@
+# 每个交易日 7:10 / 9:30（JST）计算信号并通过 ntfy 推送。
+# 仓库是公开的：持仓（HOLDINGS_JSON）和推送频道（NTFY_TOPIC）都放在 Actions 机密里，
+# 计算结果只写进临时文件、直接发给 ntfy，日志里不打印任何结果和数量。
+name: bnf push
+
+on:
+  schedule:
+    - cron: "10 22 * * 0-4"   # 7:10 JST 周一~周五 → premarket（提前一点，抵消 Actions 的延迟）
+    - cron: "30 0 * * 1-5"    # 9:30 JST 周一~周五 → postopen（数据有约 20 分钟延迟）
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: premarket / postopen
+        default: premarket
+
+concurrency: bnf-push
+
+permissions:
+  contents: read
+  actions: write          # 只用于下面的保活
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -q -r requirements.txt
+      - name: Run and push
+        env:
+          HOLDINGS_JSON: ${{ secrets.HOLDINGS_JSON }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (github.event.schedule == '30 0 * * 1-5' && 'postopen' || 'premarket') }}
+        run: |
+          printf '%s' "${HOLDINGS_JSON:-[]}" > holdings.json
+          rc=0
+          python -m bnf "$MODE" --holdings holdings.json > out.txt 2>/dev/null || rc=$?
+          if [ "$rc" -ne 0 ] && [ ! -s out.txt ]; then
+            echo "⚠️ bnf 运行失败（退出码 $rc），请查看 GitHub Actions" > out.txt
+          fi
+          if [ -s out.txt ]; then
+            curl -sS --fail -o /dev/null -H "Title: BNF $MODE" --data-binary @out.txt "https://ntfy.sh/${NTFY_TOPIC}"
+            echo "pushed"
+          else
+            echo "nothing to push"
+          fi
+          rm -f out.txt holdings.json
+          exit "$rc"
+      - name: Keep schedule alive
+        # 公开仓库 60 天没有活动，GitHub 会停掉定时任务；持仓改的是机密，不产生提交，所以这里定期重新启用一次
+        if: always()
+        run: |
+          curl -sS --fail -o /dev/null -X PUT \
+            -H "Authorization: Bearer ${{ github.token }}" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/push.yml/enable"

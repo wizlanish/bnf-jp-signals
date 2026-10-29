@@ -119,6 +119,9 @@
 
 ## 6. 运行方式
 
+> **2026-10-29 改为 GitHub Actions + ntfy（用户选择）。** Claude 云端 routine 不能执行运行时 clone 下来的代码（会被分类器判为 Code from External，而且没有放行的设置）；组织账户又不能连接 GitHub 来绑定仓库。所以改成：`.github/workflows/push.yml` 在周一到周五 7:10、9:20（JST）运行，提前一点是为了抵消 Actions 的延迟。持仓和 ntfy 频道都放在 Actions 机密里，结果直接 curl 到 ntfy.sh，不打印到日志。下面关于 routine 的描述保留作为历史记录。
+
+
 - 本地仓库：`~/bnf-jp-signals`。远端是用户 GitHub（wizlanish）下的**公开**仓库，里面只有代码，没有个人数据。
   - 改成公开的原因：用户的 claude.ai 是组织账户，不能连接 GitHub，云端任务拉不了私有仓库。所以改为直接 `git clone` 公开仓库。（2026-10-29 用户选择）
 - 一个 Python 脚本，用参数区分 7:30 和 9:30 两种模式，把推送文本输出到 stdout。数据用 yfinance。
