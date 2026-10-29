@@ -14,6 +14,7 @@ JSON 格式：`[{"code": "6273", "shares": 3, "price": 61014, "buy_date": "2026-
 - 用户说"卖了 …"：删掉对应的那条。同一只股票有多笔时，问用户卖的是哪一笔。
 - 机密的值读不回来，所以完整的持仓 JSON 以本机 `~/.bnf-holdings.json` 为准（不在仓库里）。先改这个文件，再在浏览器里打开 https://github.com/wizlanish/bnf-jp-signals/settings/secrets/actions ，更新 `HOLDINGS_JSON`，把整个 JSON 粘进去。
 - 改完向用户复述更新后的完整持仓。
+- 用户说"同步持仓"：用 moomoo MCP 的 `account_positions`（账户 ID 见用户记忆 moomoo-mcp.md，不要写进本仓库）读出所有 `JP.` 开头的持仓。code 去掉 `JP.`，shares 取 qty，price 取 cost_price，buy_date 取 open_time 换算成 JST 日期。不属于这套策略的持仓要排除，排除名单见用户记忆 bnf-japan-strategy.md（同样不要写进本仓库）。整理好后按上面的方法覆盖本机副本和机密。
 
 推送频道 `NTFY_TOPIC` 也是机密，由用户自己填写，Claude 不要碰。
 
