@@ -182,3 +182,15 @@ def test_postopen_warns_when_open_data_missing():
 def test_postopen_quiet_when_nothing_to_check():
     pre = run({"1111": frame(walk(seed=1)), "^N225": nk_with_bias(-0.01)})
     assert postopen(pre, {}, CFG) is None
+
+
+def test_broken_sorted_by_volume_ratio():
+    def with_vol(closes, last_vol):
+        df = frame(closes)
+        df["Volume"] = 1000.0
+        df.iloc[-1, df.columns.get_loc("Volume")] = last_vol
+        return df
+    a, b = with_last(walk(seed=1), 0.8), with_last(walk(seed=2), 0.8)
+    p = run({"1111": with_vol(a, 1500.0), "2222": with_vol(b, 2500.0), "^N225": nk_with_bias(-0.06)})
+    assert [r.code for r in p.broken] == ["2222", "1111"]
+    assert abs(p.rows["2222"].vol_ratio - 2.5) < 1e-9

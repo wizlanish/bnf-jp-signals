@@ -6,7 +6,7 @@ import pandas as pd
 import yfinance as yf
 
 ROOT = Path(__file__).resolve().parent.parent
-COLS = ["Open", "High", "Low", "Close"]
+COLS = ["Open", "High", "Low", "Close", "Volume"]
 
 
 def _ticker(code: str) -> str:

@@ -24,6 +24,7 @@ class Row:
     trigger: float
     lot_cost: float
     vol: float
+    vol_ratio: float | None = None   # 昨天成交量 / 之前 20 天均量；回测里 1.5~3 倍的反弹最好
 
 
 @dataclass
@@ -70,13 +71,23 @@ def _switch(nk_bias: float) -> str:
     return "ON" if nk_bias <= SWITCH_ON else "OFF"
 
 
-def _row(code: str, close: pd.Series, name: str) -> Row | None:
+def _vol_ratio(df: pd.DataFrame) -> float | None:
+    if "Volume" not in df:
+        return None
+    v = df["Volume"]
+    base = v.iloc[-21:-1].mean()
+    return float(v.iloc[-1] / base) if base and base > 0 else None
+
+
+def _row(code: str, df: pd.DataFrame, name: str) -> Row | None:
+    close = df["Close"]
     b = bias(close)
     T = buy_line(b)
     if T is None:
         return None
     pc = float(close.iloc[-1])
-    return Row(code, name, pc, float(b.iloc[-1]), T, price_at_bias(T, s24(close)), pc * LOT, vol250(close))
+    return Row(code, name, pc, float(b.iloc[-1]), T, price_at_bias(T, s24(close)), pc * LOT, vol250(close),
+               _vol_ratio(df))
 
 
 def _advice(h: Holding, df: pd.DataFrame | None, today: date, cfg: dict, name: str) -> Advice:
@@ -130,13 +141,14 @@ def premarket(daily: dict[str, pd.DataFrame], holdings: list[Holding], today: da
         if df["Close"].pct_change().iloc[-25:].abs().max() > SPLIT_SUSPECT:
             suspect.append(code)
             continue
-        r = _row(code, df["Close"], names.get(code, code))
+        r = _row(code, df, names.get(code, code))
         if r:
             rows[code] = r
     if suspect:
         warnings.append(f"疑似拆股未调整，已排除：{' '.join(suspect)}")
     by_vol = sorted(rows.values(), key=lambda r: -r.vol)
-    broken_all = [r for r in by_vol if r.bias <= r.T]
+    # 已破线按破线当天的放量倍数从高到低排（用户从上往下买）；没有成交量数据的排最后
+    broken_all = sorted((r for r in by_vol if r.bias <= r.T), key=lambda r: -(r.vol_ratio or 0))
     broken = [r for r in broken_all if r.code not in held]
     ambush = []
     if sw != "OFF" and cfg.get("ambush"):

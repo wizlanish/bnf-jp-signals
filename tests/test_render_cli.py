@@ -97,3 +97,11 @@ def test_names_cache_only_persists_universe(tmp_path, monkeypatch):
     names = data.load_names(["1111", "9999"], cache=cache, persist=["1111"])
     assert names == {"1111": "N-1111.T", "9999": "N-9999.T"}
     assert "9999" not in cache.read_text()
+
+
+def test_broken_line_shows_volume_ratio():
+    r = row(1)
+    r.vol_ratio = 2.1
+    assert "放量2.1倍" in premarket_text(pre("ON", broken=[r]))
+    r.vol_ratio = 0.8
+    assert "缩量0.8倍" in premarket_text(pre("ON", broken=[r]))

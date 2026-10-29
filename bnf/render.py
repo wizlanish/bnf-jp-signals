@@ -20,8 +20,14 @@ def _truncate(lines: list[str], total: int) -> list[str]:
     return lines[:MAX_ROWS] + ([f"…共{total}只"] if total > MAX_ROWS else [])
 
 
+def _volume(r: Row) -> str:
+    if r.vol_ratio is None:
+        return ""
+    return f" {'放量' if r.vol_ratio >= 1 else '缩量'}{r.vol_ratio:.1f}倍"
+
+
 def _broken_line(r: Row) -> str:
-    return (f"{_label(r.code, r.name)} 昨收{_p(r.prev_close)} 乖离{r.bias:+.1%}/线{r.T:+.1%} "
+    return (f"{_label(r.code, r.name)}{_volume(r)} 昨收{_p(r.prev_close)} 乖离{r.bias:+.1%}/线{r.T:+.1%} "
             f"一手{r.lot_cost / 10000:.1f}万 → 开盘买（ひと株须8:03前）")
 
 
@@ -46,7 +52,7 @@ def premarket_text(p: Premarket) -> str:
                 span = f"{lo}~{hi}只" if hi < 10**9 else f"{lo}只以上"
                 out.append(f"历史同类（破线{span}）：胜率{win}，平均每笔{avg}")
         if p.broken:
-            out.append("【已破线】")
+            out.append("【已破线】按放量从高到低排（破线当天量比 1.5~3 倍的回测最好）")
             out += _truncate([_broken_line(r) for r in p.broken], len(p.broken))
         if p.ambush:
             out.append("【埋伏 限价买（一手股适用）】")
