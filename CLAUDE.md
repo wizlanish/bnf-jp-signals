@@ -1,6 +1,6 @@
 # bnf-jp-signals
 
-日经 225 乖离率抄底信号，每个东证交易日 7:30 和 9:30（JST）由 GitHub Actions 计算并通过 ntfy 推送到手机（因为 GitHub Actions 会延迟，早上那次实际在 7:10 运行；9:30 那次准点触发、可能晚几分钟）。设计见 `docs/superpowers/specs/`。
+日经 225 乖离率抄底信号，每个东证交易日 7:30 和 9:30（JST）由 GitHub Actions 计算并通过 ntfy 推送到手机（因为 GitHub Actions 会延迟，早上那次实际在 6:50 运行；9:30 那次准点触发、可能晚几分钟）。设计见 `docs/superpowers/specs/`。
 
 ## 持仓更新（用户说"买了 / 卖了"时）
 

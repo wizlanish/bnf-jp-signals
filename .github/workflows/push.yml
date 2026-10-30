@@ -1,13 +1,12 @@
-# 每个交易日 7:10 / 9:30（JST）计算信号并通过 ntfy 推送。定时任务挂在最后修改 cron 的用户名下，提交须用 GitHub 账号关联的邮箱。
+# 每个交易日 6:50 / 9:30（JST）计算信号并通过 ntfy 推送。定时任务挂在最后修改 cron 的用户名下，提交须用 GitHub 账号关联的邮箱。
 # 仓库是公开的：持仓（HOLDINGS_JSON）和推送频道（NTFY_TOPIC）都放在 Actions 机密里，
 # 计算结果只写进临时文件、直接发给 ntfy，日志里不打印任何结果和数量。
 name: bnf push
 
 on:
   schedule:
-    - cron: "10 22 * * 0-4"   # 7:10 JST 周一~周五 → premarket（提前一点，抵消 Actions 的延迟）
+    - cron: "50 21 * * 0-4"   # 6:50 JST 周一~周五 → premarket（提前，抵消 Actions 的延迟；ひと株 8:03 截止）
     - cron: "30 0 * * 1-5"    # 9:30 JST 周一~周五 → postopen（数据有约 20 分钟延迟）
-    - cron: "0 2 30 10 *"     # 临时测试：2026-10-30 11:00 JST，确认定时触发正常后删除
   workflow_dispatch:
     inputs:
       mode:
