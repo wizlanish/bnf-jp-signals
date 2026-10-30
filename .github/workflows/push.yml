@@ -7,6 +7,7 @@ on:
   schedule:
     - cron: "10 22 * * 0-4"   # 7:10 JST 周一~周五 → premarket（提前一点，抵消 Actions 的延迟）
     - cron: "30 0 * * 1-5"    # 9:30 JST 周一~周五 → postopen（数据有约 20 分钟延迟）
+    - cron: "0 2 30 10 *"     # 临时测试：2026-10-30 11:00 JST，确认定时触发正常后删除
   workflow_dispatch:
     inputs:
       mode:
