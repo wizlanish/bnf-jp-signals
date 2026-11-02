@@ -27,6 +27,8 @@ JSON 格式：`[{"code": "6273", "shares": 3, "price": 61014, "buy_date": "2026-
 
 ## 运维
 
-- 定时任务只在 main 分支上生效。
+- **主触发是 cron-job.org**（用户自己的账号）：两个任务 "BNF premarket 6:50" 和 "BNF postopen 9:30"，周一到周五东京时间准点 POST 到 workflow_dispatch。用的 GitHub 细粒度令牌只对这个仓库有 Actions 读写权限，**2027-11-02 到期**，到期前要重新生成，并请用户自己粘贴到 cron-job.org（Claude 不能碰令牌）。
+- GitHub 自带的 schedule 只当备用：它经常晚几十分钟到几小时，有时不跑。workflow 会按 run-name 判断同一天同一模式是否已经成功跑过，跑过就跳过；备用触发晚到时，推送开头会加"⚠️ 本条晚到"。
+- 定时任务只在 main 分支上生效；必须用 GitHub 账号关联的邮箱提交（仓库本地 git 配置已设好 wizlanish 的 noreply 邮箱）。
 - 公开仓库 60 天没有活动，GitHub 会停掉定时任务。workflow 里有一步保活（每次运行都调用 enable 接口），但还是要偶尔看一下 Actions 页面。
 - 运行失败时会推一行"⚠️ bnf 运行失败"，job 也会标红，GitHub 会发邮件。
