@@ -1,13 +1,17 @@
-# 每个交易日 6:50 / 9:30（JST）计算信号并通过 ntfy 推送。定时任务挂在最后修改 cron 的用户名下，提交须用 GitHub 账号关联的邮箱。
+# 每个交易日 6:50 / 9:30（JST）计算信号并通过 ntfy 推送。
+# 主触发：外部定时服务（cron-job.org）准点调用 workflow_dispatch。GitHub 自带的 schedule 不准时，
+# 经常晚几十分钟到几小时、甚至不跑，所以只当备用：同一天同一模式已经成功跑过，就直接跳过。
+# 定时任务挂在最后修改 cron 的用户名下，提交须用 GitHub 账号关联的邮箱。
 # 仓库是公开的：持仓（HOLDINGS_JSON）和推送频道（NTFY_TOPIC）都放在 Actions 机密里，
 # 计算结果只写进临时文件、直接发给 ntfy，日志里不打印任何结果和数量。
 name: bnf push
+run-name: bnf ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (github.event.schedule == '30 0 * * 1-5' && 'postopen' || 'premarket') }}
 
 on:
-  schedule:
-    - cron: "50 21 * * 0-4"   # 6:50 JST 周一~周五 → premarket（提前，抵消 Actions 的延迟；ひと株 8:03 截止）
-    - cron: "30 0 * * 1-5"    # 9:30 JST 周一~周五 → postopen（数据有约 20 分钟延迟）
-  workflow_dispatch:
+  schedule:                   # 备用
+    - cron: "50 21 * * 0-4"   # 6:50 JST 周一~周五 → premarket
+    - cron: "30 0 * * 1-5"    # 9:30 JST 周一~周五 → postopen
+  workflow_dispatch:          # 主触发（cron-job.org）
     inputs:
       mode:
         description: premarket / postopen
@@ -17,30 +21,56 @@ concurrency: bnf-push
 
 permissions:
   contents: read
-  actions: write          # 只用于下面的保活
+  actions: write          # 查当天是否已跑过 + 保活
+
+env:
+  MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (github.event.schedule == '30 0 * * 1-5' && 'postopen' || 'premarket') }}
 
 jobs:
   push:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Skip if this mode already ran today (JST)
+        id: dup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=$(curl -sS --fail -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/${{ github.repository }}/actions/workflows/push.yml/runs?status=success&per_page=50" \
+              | python3 -c "
+          import json, sys, os
+          from datetime import datetime, timedelta, timezone
+          jst = timezone(timedelta(hours=9)); today = datetime.now(jst).date()
+          runs = json.load(sys.stdin)['workflow_runs']
+          print(sum(1 for r in runs if r['display_title'] == 'bnf ' + os.environ['MODE'] and str(r['id']) != os.environ['GITHUB_RUN_ID']
+                    and datetime.fromisoformat(r['created_at'].replace('Z', '+00:00')).astimezone(jst).date() == today))")
+          echo "already=$n"
+          echo "skip=$([ "$n" -gt 0 ] && echo 1 || echo 0)" >> "$GITHUB_OUTPUT"
+      - if: steps.dup.outputs.skip != '1'
+        uses: actions/checkout@v4
+      - if: steps.dup.outputs.skip != '1'
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install -q -r requirements.txt
+      - if: steps.dup.outputs.skip != '1'
+        run: pip install -q -r requirements.txt
       - name: Run and push
+        if: steps.dup.outputs.skip != '1'
         env:
           HOLDINGS_JSON: ${{ secrets.HOLDINGS_JSON }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-          MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (github.event.schedule == '30 0 * * 1-5' && 'postopen' || 'premarket') }}
         run: |
           printf '%s' "${HOLDINGS_JSON:-[]}" > holdings.json
           rc=0
           python -m bnf "$MODE" --holdings holdings.json > out.txt 2>/dev/null || rc=$?
           if [ "$rc" -ne 0 ] && [ ! -s out.txt ]; then
             echo "⚠️ bnf 运行失败（退出码 $rc），请查看 GitHub Actions" > out.txt
+          fi
+          now=$(TZ=Asia/Tokyo date +%H%M)
+          if [ -s out.txt ] && { { [ "$MODE" = premarket ] && [ "$now" -gt 0745 ]; } || { [ "$MODE" = postopen ] && [ "$now" -gt 1015 ]; }; }; then
+            { echo "⚠️ 本条晚到（$(TZ=Asia/Tokyo date +%H:%M) 才运行）。早上那条：ひと株 8:03 截止可能已过"; cat out.txt; } > out2.txt && mv out2.txt out.txt
           fi
           if [ -s out.txt ]; then
             curl -sS --fail -o /dev/null -H "Title: BNF $MODE" --data-binary @out.txt "https://ntfy.sh/${NTFY_TOPIC}"
